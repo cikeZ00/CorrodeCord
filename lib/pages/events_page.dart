@@ -62,41 +62,30 @@ class _EventsPageState extends State<EventsPage> {
 
   void _initializeGuildChannels() {
     if (_guildData != null && _guildData!.containsKey('guilds')) {
-      _guildChannels.clear();
-      _guildMessages.clear();
-
       List<dynamic> guilds = _guildData!['guilds'];
       for (var guild in guilds) {
-        BigInt guildId = BigInt.parse(guild['id'].toString().replaceAll('"', ''));
+        String guildId = guild['id'].toString().replaceAll('"', '');
         List<dynamic> channels = guild['channels'] ?? [];
 
-        print('Initializing guild: $guildId with channels: ${channels.map((c) => c['id']).toList()}');
-
-        Map<String, List<Map<String, dynamic>>> guildChannels = {
-          'text': [],
-          'voice': [],
-        };
-
-        for (var channel in channels) {
-          BigInt channelId = BigInt.parse(channel['id'].toString().replaceAll('"', ''));
-          if (channel['type'] == 0) {
-            guildChannels['text']!.add({
-              'id': channelId.toString(),
-              'name': channel['name'] ?? 'Unnamed Channel',
-            });
-            _guildMessages[guildId.toString()] = _guildMessages[guildId.toString()] ?? {};
-            _guildMessages[guildId.toString()]![channelId.toString()] = [];
-          } else if (channel['type'] == 2) {
-            guildChannels['voice']!.add({
-              'id': channelId.toString(),
-              'name': channel['name'] ?? 'Unnamed Channel',
-            });
-            _guildMessages[guildId.toString()] = _guildMessages[guildId.toString()] ?? {};
-            _guildMessages[guildId.toString()]![channelId.toString()] = [];
-          }
+        if (!_guildChannels.containsKey(guildId)) {
+          _guildChannels[guildId] = {'text': [], 'voice': []};
         }
 
-        _guildChannels[guildId.toString()] = guildChannels;
+        for (var channel in channels) {
+          String channelId = channel['id'].toString().replaceAll('"', '');
+          String channelName = channel['name'] ?? 'Unnamed Channel';
+          int channelType = channel['type'];
+
+          if (channelType == 0 && !_guildChannels[guildId]!['text']!.any((c) => c['id'] == channelId)) {
+            _guildChannels[guildId]!['text']!.add({'id': channelId, 'name': channelName});
+            _guildMessages[guildId] = _guildMessages[guildId] ?? {};
+            _guildMessages[guildId]![channelId] = _guildMessages[guildId]![channelId] ?? [];
+          } else if (channelType == 2 && !_guildChannels[guildId]!['voice']!.any((c) => c['id'] == channelId)) {
+            _guildChannels[guildId]!['voice']!.add({'id': channelId, 'name': channelName});
+            _guildMessages[guildId] = _guildMessages[guildId] ?? {};
+            _guildMessages[guildId]![channelId] = _guildMessages[guildId]![channelId] ?? [];
+          }
+        }
       }
 
       print('Initialized guild messages: $_guildMessages');
@@ -208,19 +197,19 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   void _showChannelMessages(String guildId, String channelId, String channelName, bool isVoice) {
-    List<Map<String, dynamic>> messages = _guildMessages[guildId]![channelId]!;
+  List<Map<String, dynamic>> messages = _guildMessages[guildId]![channelId]!;
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ChannelMessagesPage(
-          guildId: guildId,
-          channelId: channelId,
-          channelName: channelName,
-          messages: messages, initialMessages: const [],
-        ),
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (context) => ChannelMessagesPage(
+        guildId: guildId,
+        channelId: channelId,
+        channelName: channelName,
+        initialMessages: messages,
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class ChannelMessagesPage extends StatefulWidget {
@@ -234,7 +223,7 @@ class ChannelMessagesPage extends StatefulWidget {
     required this.guildId,
     required this.channelId,
     required this.channelName,
-    required this.initialMessages, required List<Map<String, dynamic>> messages,
+    required this.initialMessages,
   });
 
   @override
@@ -243,29 +232,38 @@ class ChannelMessagesPage extends StatefulWidget {
 
 class _ChannelMessagesPageState extends State<ChannelMessagesPage> {
   late List<Map<String, dynamic>> _messages;
+  late StreamSubscription _subscription;
 
   @override
   void initState() {
     super.initState();
     _messages = List.from(widget.initialMessages);
 
-    rustService.events.listen((event) {
+    _subscription = rustService.events.listen((event) {
       if (event['type'] == 'MESSAGE') {
         final messageData = json.decode(event['data']!);
         final eventGuildId = messageData['server_id'].toString().trim().replaceAll('"', '');
         final eventChannelId = messageData['channel_id'].toString().trim().replaceAll('"', '');
 
         if (eventGuildId == widget.guildId && eventChannelId == widget.channelId) {
-          setState(() {
-            _messages.add({
-              'author': messageData['author'] ?? 'Unknown',
-              'content': messageData['content'] ?? '',
-              'timestamp': messageData['timestamp'] ?? '',
+          if (mounted) {
+            setState(() {
+              _messages.add({
+                'author': messageData['author'] ?? 'Unknown',
+                'content': messageData['content'] ?? '',
+                'timestamp': messageData['timestamp'] ?? '',
+              });
             });
-          });
+          }
         }
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
   }
 
   @override
