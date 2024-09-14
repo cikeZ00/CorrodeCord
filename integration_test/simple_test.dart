@@ -1,6 +1,6 @@
-import 'package:disproportion/app.dart';
+import 'package:Corrode/app.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:disproportion/src/rust/frb_generated.dart';
+import 'package:Corrode/src/rust/frb_generated.dart';
 import 'package:integration_test/integration_test.dart';
 
 void main() {

@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:disproportion/src/rust/api/main.dart';
+import 'package:Corrode/src/rust/api/main.dart';
 
 class RustService {
   final _eventController = StreamController<Map<String, String>>.broadcast();

@@ -1,4 +1,4 @@
-# Disproportion
+# Corrode
 A re-implementstion of the discord client in Rust/Flutter
 
 ## Why?

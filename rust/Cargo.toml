@@ -1,6 +1,6 @@
 workspace = { members = ["src/api/discord_api/"] }
 [package]
-name = "rust_lib_disproportion"
+name = "rust_lib_Corrode"
 version = "0.1.0"
 edition = "2021"
 
