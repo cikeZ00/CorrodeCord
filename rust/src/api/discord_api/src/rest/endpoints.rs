@@ -1,0 +1,9 @@
+pub const BASE_URL: &str = "https://discord.com/api/v9";
+pub const GET_GUILDS: &str = "/users/@me/guilds";
+pub const GET_CHANNELS: &str = "/guilds/{guild_id}/channels";
+pub const GET_MESSAGES: &str = "/channels/{channel_id}/messages";
+pub const SEND_MESSAGE: &str = "/channels/{channel_id}/messages";
+pub const GET_USER: &str = "/users/{user_id}";
+pub const GET_USER_GUILDS: &str = "/users/{user_id}/guilds";
+pub const GET_USER_CONNECTIONS: &str = "/users/@me/connections";
+pub const GET_GUILD: &str = "/guilds/{guild_id}";
