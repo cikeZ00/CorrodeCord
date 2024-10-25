@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use discord_api::events::event::Event;
 use discord_api::gateway::connection::start_thread;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Mutex};
+use flutter_rust_bridge::for_generated::futures::{SinkExt, StreamExt};
 use crate::frb_generated::{StreamSink, FLUTTER_RUST_BRIDGE_HANDLER};
 use tokio::runtime::Runtime;
 use serde_json::json;
@@ -9,12 +10,15 @@ use serde_json::json;
 pub async fn gateway_connection(token: String, sink: StreamSink<String>) {
     let handle = flutter_rust_bridge::spawn_blocking_with(
         move || {
-            let (tx, rx) = mpsc::channel();
+            // Data channels for comms between threads
+            let (tx, rx) = mpsc::channel(); // From gateway to main thread
+            let (tx_sub, rx_sub) = mpsc::channel(); // From main thread to gateway
+
 
             // Create a new tokio runtime to run the async task
             let rt = Runtime::new().unwrap();
             rt.block_on(async {
-                tokio::spawn(start_thread(tx, token));
+                tokio::spawn(start_thread(tx, rx_sub, token));
 
                 loop {
                     match rx.recv() {

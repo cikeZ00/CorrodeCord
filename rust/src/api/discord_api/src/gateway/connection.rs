@@ -1,4 +1,5 @@
-use tungstenite::{connect, Message, Error as WsError};
+use std::net::TcpStream;
+use tungstenite::{connect, Message, Error as WsError, WebSocket};
 use serde_json::{json, Value};
 use std::sync::{Arc, mpsc, Mutex};
 use std::time::Duration;
@@ -8,7 +9,7 @@ use tokio;
 use crate::events::event::Event;
 use crate::events::handler::handle_event;
 
-pub async fn start_thread(tx: mpsc::Sender<Event>, token: String) {
+pub async fn start_thread(tx: mpsc::Sender<Event>, rx_sub: mpsc::Receiver<String>, token: String) {
     let gateway_url_cached = reqwest::get("https://discord.com/api/v10/gateway")
         .await.expect("Failed to fetch gateway URL")
         .text().await.expect("Failed to read response");
@@ -17,6 +18,11 @@ pub async fn start_thread(tx: mpsc::Sender<Event>, token: String) {
     let mut gateway_url = gateway_json["url"].as_str().expect("Invalid gateway URL").to_owned();
 
     loop {
+
+        if let Ok(event) = rx_sub.try_recv() {
+            println!("Received main.rs event: {}", event);
+        }
+
         let mut hb_interval: u128 = 0;
         let (socket, _response) = match connect(gateway_url.clone() + "/?v=9&encoding=json") {
             Ok((socket, response)) => (socket, response),
@@ -44,9 +50,10 @@ pub async fn start_thread(tx: mpsc::Sender<Event>, token: String) {
             "op": 2,
             "d": {
                 "token": token,
+                "capabilities":30717,
                 "properties": {
-                    "$os": "linux",
-                    "$browser": "chrome",
+                    "$os": "Linux",
+                    "$browser": "Chrome",
                     "$device": "desktop"
                 }
             }
@@ -119,4 +126,26 @@ pub async fn start_thread(tx: mpsc::Sender<Event>, token: String) {
         }
         println!("Reconnecting...");
     }
+}
+
+fn create_subscription_payload(guild_id: &str, channel_id: &str) -> String {
+    let payload = json!({
+        "op": 37,
+        "d": {
+            "subscriptions": {
+                guild_id: {
+                    "typing": true,
+                    "threads": true,
+                    "activities": true,
+                    "members": [],
+                    "member_updates": false,
+                    "channels": {
+                        channel_id: [json!({"start": 0, "end": 99})]
+                    },
+                    "thread_member_lists": []
+                }
+            }
+        }
+    });
+    payload.to_string()
 }
